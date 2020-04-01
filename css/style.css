@@ -17,7 +17,21 @@
 } */
 
 .countries {
-    fill: #FFF;
-    stroke: #CCC;
+    fill: #ebebeb;
+    stroke: #bdd9d8;
     stroke-width: 2px;
+}
+
+.gratBackground {
+    fill: #bdd9d8;
+}
+
+.gratLines {
+    fill: none;
+    stroke: #999;
+    stroke-width: 1px;
+}
+
+.map {
+    border: medium solid #999;
 }

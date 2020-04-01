@@ -1,155 +1,61 @@
 //Scriptsheet by Shujin Wang, 2020
-//execute script when window is loaded
-window.onload = function(){
-    //SVG dimension variables
-    var w = 900, h = 500;
+//begin script when window loads
+window.onload = setMap();
 
-    //container block
-    var container = d3.select("body") //get the <body> element from the DOM
-        .append("svg") //put a new svg in the body
-        .attr("width", w) //assign the width
-        .attr("height", h) //assign the height
-        .attr("class", "container") //assign a class name
-        .style("background-color", "rgba(0,0,0,0.2)"); //svg background color
+//set up choropleth map
+function setMap(){
+    //map frame dimensions
+    var width = 960,
+        height = 460;
 
-    //innerRect block
-    var innerRect = container.append("rect") //put a new rect in the svg
-        .datum(400) //a single value is a datum
-        .attr("width", function(d){ //rectangle width
-            return d * 2; //400 * 2 = 800
-        })
-        .attr("height", function(d){ //rectangle height
-            return d; //400
-        })
-        .attr("class", "innerRect") //class name
-        .attr("x", 50) //position from left on the x (horizontal) axis
-        .attr("y", 50) //position from top on the y (vertical) axis
-        .style("fill", "#FFFFFF"); //fill color
+    //create new svg container for the map
+    var map = d3.select("body")
+        .append("svg")
+        .attr("class", "map")
+        .attr("width", width)
+        .attr("height", height);
 
-    //the city populations data array from Week 2
-    var cityPop = [
-        {
-            city: 'Madison',
-            population: 233209
-        },
-        {
-            city: 'Milwaukee',
-            population: 594833
-        },
-        {
-            city: 'Green Bay',
-            population: 104057
-        },
-        {
-            city: 'Superior',
-            population: 27244
-        }
-    ];
+    //create Albers equal area conic projection centered on Spain
+    var projection = d3.geoAlbers()
+        .center([-3, 40])
+        .rotate([1, 0, 0])
+        .parallels([38, 42])
+        .scale(2500)
+        .translate([width / 2, height / 2]);
 
-    //x coordinate linear scale
-    var x = d3.scaleLinear() //create the scale
-        .range([90, 810]) //output min and max
-        .domain([0, 3.3]); //input min and max
+    var path = d3.geoPath()
+        .projection(projection);
 
-    //find the minimum value of the array
-    var minPop = d3.min(cityPop, function(d){
-        return d.population;
-    });
+    //use Promise.all to parallelize asynchronous data loading
+    var promises = [];
+    promises.push(d3.csv("data/unitsData.csv")); //load attributes from csv
+    promises.push(d3.json("data/otherCountries.topojson")); //load background spatial data
+    promises.push(d3.json("data/SpainRegions.topojson")); //load choropleth spatial data
+    Promise.all(promises).then(callback);
 
-    //find the maximum value of the array
-    var maxPop = d3.max(cityPop, function(d){
-        return d.population;
-    });
+    function callback(data){
+      	csvData = data[0];
+        other = data[1];
+      	spain = data[2];
 
-    //scale for circles center y coordinate
-    var y = d3.scaleLinear()
-        .range([450, 50])
-        .domain([0, 700000]);
+        //translate spain TopoJSON
+        var otherCountries = topojson.feature(other, other.objects.ne_10m_admin_0_countries);
+        var spainRegions = topojson.feature(spain, spain.objects.ESP_adm1).features;
 
-    //color scale generator
-        var color = d3.scaleLinear()
-            .range(["#FDBE85", "#D94701"])
-            .domain([minPop, maxPop]);
+        //add other countries to map
+        var countries = map.append("path")
+            .datum(otherCountries)
+            .attr("class", "countries")
+            .attr("d", path);
 
-    //using the cityPop array to create circles
-    var circles = container.selectAll(".circles") //create an empty selection
-        .data(cityPop) //here we feed in an array
-        .enter() //one of the great mysteries of the universe
-        .append("circle") //inspect the HTML--holy crap, there's some circles there
-        .attr("class", "circles") //apply a class name to all circles
-        .attr("id", function(d){
-            return d.city;
-        })
-        .attr("r", function(d){
-            //calculate the radius based on population value as circle area
-            var area = d.population * 0.01;
-            return Math.sqrt(area/Math.PI);
-        })
-        .attr("cx", function(d, i){
-            //use the scale generator with the index to place each circle horizontally
-            return x(i);
-        })
-        .attr("cy", function(d){
-            //use the scale generator with the population to place each circle verically
-            return y(d.population);
-        })
-        .style("fill", function(d){
-            //add a fill based on the color scale generator
-            return color(d.population);
-        })
-        .style("stroke", "#000"); //black circle stroke
-
-    //create y axis generator
-    var yAxis = d3.axisLeft(y);
-
-    //create axis g element and add axis
-    var axis = container.append("g")
-        .attr("class", "axis")
-        .attr("transform", "translate(50, 0)")
-        .call(yAxis);
-
-    //create a text element and add the title
-    var title = container.append("text")
-        .attr("class", "title")
-        .attr("text-anchor", "middle")
-        .attr("x", 450)
-        .attr("y", 30)
-        .text("City Populations");
-
-    //create circle labels
-    var labels = container.selectAll(".labels")
-        .data(cityPop)
-        .enter()
-        .append("text")
-        .attr("class", "labels")
-        .attr("text-anchor", "left")
-        .attr("y", function(d){
-            //vertical position centered on each circle
-            return y(d.population);
-        });
-
-    //first line of label
-    var nameLine = labels.append("tspan")
-        .attr("class", "nameLine")
-        .attr("x", function(d,i){
-            //horizontal position to the right of each circle
-            return x(i) + Math.sqrt(d.population * 0.01 / Math.PI) + 5;
-        })
-        .text(function(d){
-            return d.city;
-        });
-
-    //create format generator
-    var format = d3.format(",");
-
-    //second line of label
-    var popLine = labels.append("tspan")
-        .attr("class", "popLine")
-        .attr("x", function(d,i){
-            return x(i) + Math.sqrt(d.population * 0.01 / Math.PI) + 5;
-        })
-        .attr("dy", "15") //vertical offset
-        .text(function(d){
-            return "Pop. " + format(d.population); //use format generator to format numbers
-        });
+        //add Spain regions to map
+        var regions = map.selectAll(".regions")
+            .data(spainRegions)
+            .enter()
+            .append("path")
+            .attr("class", function(d){
+                return "regions " + d.properties.NAME_1;
+            })
+            .attr("d", path);
+    };
 };

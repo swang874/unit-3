@@ -2,13 +2,15 @@
 //wrap everything in a self-executing anonymous function to move to local scope
 (function(){
 //pseudo-global variables for data join
-var attrArray = ["Hospital Beds", "Mar 25th Incidence Rate", "Mar 25th Death Rate", "Apr 1st Incidence Rate", "Apr 1st Death Rate"]; //list of attributes
-var domain = {"Hospital Beds": 5.5, "Mar 25th Incidence Rate": 3.5, "Mar 25th Death Rate": 120, "Apr 1st Incidence Rate": 7, "Apr 1st Death Rate": 150}
+var attrArray = ["Hospital Beds", "Mar 25th Incidence Rate", "Mar 25th Death Rate", "Apr 1st Incidence Rate", "Apr 1st Death Rate", "Apr 15th Incidence Rate", "Apr 15th Death Rate"]; //list of attributes
+var domain = {"Hospital Beds": 5.5, "Mar 25th Incidence Rate": 3.5, "Mar 25th Death Rate": 120, "Apr 1st Incidence Rate": 7, "Apr 1st Death Rate": 150, "Apr 15th Incidence Rate": 12.5, "Apr 15th Death Rate": 155}
 var title = {"Hospital Beds": "Number of Hospital Beds per 1000 People",
              "Mar 25th Incidence Rate": "Number of COVID-19 Cases per 1000 people on Mar 25th",
              "Mar 25th Death Rate": "Number of Deaths per 1000 Cases of COVID-19 on Mar 25th",
              "Apr 1st Incidence Rate": "Number of COVID-19 Cases per 1000 people on Apr 1st",
-             "Apr 1st Death Rate": "Number of Deaths per 1000 Cases of COVID-19 on Apr 1st"}
+             "Apr 1st Death Rate": "Number of Deaths per 1000 Cases of COVID-19 on Apr 1st",
+             "Apr 15th Incidence Rate": "Number of COVID-19 Cases per 1000 people on Apr 15th",
+             "Apr 15th Death Rate": "Number of Deaths per 1000 Cases of COVID-19 on Apr 15th"}
 var expressed = attrArray[2]; //initial attribute
 
 //chart frame dimensions
@@ -103,6 +105,11 @@ function setMap(){
         setEnumerationUnits(spainRegions, map2, path2, colorScale);
 
         createDropdown(csvData);
+
+        var infotext = d3.select("body")
+            .append("div")
+            .attr("class", "infotext")
+            .html("The COVID-19 was confirmed to have spread to Spain on Jan 31st 2020, when a German tourist tested positive on Canary Islands. By 13 March, cases had been registered in all 50 provinces of the country. A state of alarm and national lockdown was imposed on 14 March. By late March, the Community of Madrid has recorded the most cases and deaths in the country. Medical professionals and those who live in retirement homes have experienced especially high infection rates. On 25 March 2020, the death toll in Spain surpassed that reported in mainland China and only Italy had a higher death toll globally. On 2 April, 950 people died of the virus in a 24-hour period—at the time, the most by any country in a single day. As of 15 April 2020, there have been 177,644 confirmed cases with 70,853 recoveries and 18,708 deaths in Spain. The actual number of cases, however, is likely to be much higher, as many people with only mild or no symptoms are unlikely to have been tested.")
     };
 };
 
@@ -209,7 +216,8 @@ function setEnumerationUnits(spainRegions, map, path, colorScale){
         })
         .on("mouseout", function(d){
             dehighlight(d.properties);
-        });
+        })
+        .on("mousemove", moveLabel);
 
     var desc = regions.append("desc")
         .text('{"stroke": "black", "stroke-width": "0.5px"}');
@@ -236,7 +244,8 @@ function setChart(csvData, colorScale){
             return "bars " + d.NAME_1;
         })
         .on("mouseover", highlight)
-        .on("mouseout", dehighlight);
+        .on("mouseout", dehighlight)
+        .on("mousemove", moveLabel);
 
     var desc = bars.append("desc")
         .text('{"stroke": "none", "stroke-width": "0px"}');
@@ -257,7 +266,7 @@ function setChart(csvData, colorScale){
             return a[expressed]-b[expressed]
         })
         .attr("class", function(d){
-            return "numbers " + d.NAME_1;
+            return "numbers";
         });
 
     //set bar positions, heights, colors and annotations
@@ -380,6 +389,7 @@ function highlight(props){
     var selected = d3.selectAll("." + props.NAME_1)
         .style("stroke", "black")
         .style("stroke-width", "2");
+    setLabel(props);
 };
 
 //function to reset the element style on mouseout
@@ -401,5 +411,51 @@ function dehighlight(props){
 
         return styleObject[styleName];
     };
+
+    //remove info label
+    d3.select(".infolabel")
+        .remove();
+};
+
+//function to create dynamic label
+function setLabel(props){
+    //label content
+    var labelAttribute = "<h1>" + props[expressed] +
+        "</h1><b>" + expressed + "</b>";
+
+    //create info label div
+    var infolabel = d3.select("body")
+        .append("div")
+        .attr("class", "infolabel")
+        .attr("id", props.NAME_1 + "_label")
+        .html(labelAttribute);
+
+    var regionName = infolabel.append("div")
+        .attr("class", "labelname")
+        .html(props.NAME_1);
+};
+
+//function to move info label with mouse
+function moveLabel(){
+    //get width of label
+    var labelWidth = d3.select(".infolabel")
+        .node()
+        .getBoundingClientRect()
+        .width;
+
+    //use coordinates of mousemove event to set label coordinates
+    var x1 = d3.event.clientX + 10,
+        y1 = d3.event.clientY - 75,
+        x2 = d3.event.clientX - labelWidth - 10,
+        y2 = d3.event.clientY + 25;
+
+    //horizontal label coordinate, testing for overflow
+    var x = d3.event.clientX > window.innerWidth - labelWidth - 20 ? x2 : x1;
+    //vertical label coordinate, testing for overflow
+    var y = d3.event.clientY < 75 ? y2 : y1;
+
+    d3.select(".infolabel")
+        .style("left", x + "px")
+        .style("top", y + "px");
 };
 })();
